@@ -78,7 +78,8 @@ static void *server_comm_tcp_thread(void *arg)
                             client_info[i].fd = clnt_sock;
                             snprintf(client_info[i].ip_addr, sizeof(client_info[i].ip_addr),
                                 "%s", inet_ntoa(clnt_adr.sin_addr));
-                            client_info->used = 1;
+                            client_info[i].used = 1;
+                            break;
                         }
                     }
                 }
@@ -111,6 +112,7 @@ static void *server_comm_tcp_thread(void *arg)
                             {
                                 snprintf(data_from_client.ip_addr, sizeof(data_from_client.ip_addr),
                                     "%s", client_info[i].ip_addr);
+                                break;
                             }
                         }
                         if(pfn_get_data)
