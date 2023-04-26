@@ -12,8 +12,7 @@ struct DATA_FROM_CLIENT {
     uint8_t  buf[BUF_SIZE];
 };
 
-int server_tcp_start(uint16_t port);
+int server_tcp_start(uint16_t port, int(*funcPtr)(struct DATA_FROM_CLIENT *p_client_data));
 int server_tcp_stop();
-int server_tcp_get_data(struct DATA_FROM_CLIENT *p_data);
 
 #endif

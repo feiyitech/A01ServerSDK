@@ -1,16 +1,33 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include "comm_tcp.h"
 #include "../include/vlog.h"
 
-#define BUF_SIZE 4096
+struct DATA_FROM_CLIENT m_client_data;
+
+int get_data_cb(struct DATA_FROM_CLIENT *p_client_data)
+{
+    memcpy(&m_client_data, p_client_data, sizeof(m_client_data));
+
+    VLOG("client data: %s:%d: size %d: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+        m_client_data.ip_addr, m_client_data.fd, m_client_data.size,
+        m_client_data.buf[0],
+        m_client_data.buf[1],
+        m_client_data.buf[2],
+        m_client_data.buf[3],
+        m_client_data.buf[4],
+        m_client_data.buf[5],
+        m_client_data.buf[6],
+        m_client_data.buf[7]);
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
     int ret = 0;
-    struct DATA_FROM_CLIENT client_data;
 
-    ret = server_tcp_start(5566);
+    ret = server_tcp_start(5566, get_data_cb);
     if(ret < 0)
     {
         VLOG("server_tcp_start failed.\n");
@@ -19,17 +36,7 @@ int main(int argc, char *argv[])
 
     while(1)
     {
-        server_tcp_get_data(&client_data);
-        VLOG("client data: %s:%d: size %d: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-            client_data.ip_addr, client_data.fd, client_data.size,
-            client_data.buf[0],
-            client_data.buf[1],
-            client_data.buf[2],
-            client_data.buf[3],
-            client_data.buf[4],
-            client_data.buf[5],
-            client_data.buf[6],
-            client_data.buf[7]);
+        usleep(1000000);
     }
 
     return 0;

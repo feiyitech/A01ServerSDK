@@ -11,31 +11,13 @@
 #include "../include/vlog.h"
 #include "comm_tcp.h"
 
+
+int (*pfn_get_data)(struct DATA_FROM_CLIENT *p_client_data);
+
+#define MAX_CLIENT_NUM  16
+
 static pthread_t server_comm_tcp_thread_id = 0;
 static int serv_sock = 0;
-
-struct DATA_FROM_CLIENT data_from_client[16];
-static int write_index = 0;
-static int read_index  = 0;
-
-
-
-static int thread_flag;
-static pthread_cond_t thread_flag_cv;
-static pthread_mutex_t thread_flag_mutex;
-
-#define FLAG_DATA_FROM_CLIENT  0x01
-
-static void initialize_flag ()
-{
-  /* Initialize the mutex and condition variable.  */
-  pthread_mutex_init (&thread_flag_mutex, NULL);
-  pthread_cond_init (&thread_flag_cv, NULL);
-  /* Initialize the flag value.  */
-  thread_flag = 0;
-}
-
-
 
 static void *server_comm_tcp_thread(void *arg)
 {
@@ -47,9 +29,10 @@ static void *server_comm_tcp_thread(void *arg)
     fd_set reads, cpy_reads;
     int fd_max, fd_num;
 
-    char buf[BUF_SIZE];
     int str_len = 0;
     int ret     = 0;
+    struct DATA_FROM_CLIENT data_from_client;
+    struct { int used; int fd; char ip_addr[16]; } client_info[MAX_CLIENT_NUM];
 
     FD_ZERO(&reads);
     FD_SET(serv_sock, &reads);
@@ -87,36 +70,51 @@ static void *server_comm_tcp_thread(void *arg)
                         fd_max = clnt_sock;
                     VLOG("connected client %d: %s:%d\n", clnt_sock,
                         inet_ntoa(clnt_adr.sin_addr), ntohs(clnt_adr.sin_port));
+
+                    for(int i = 0; i < MAX_CLIENT_NUM; i++)
+                    {
+                        if(client_info[i].used == 0)
+                        {
+                            client_info[i].fd = clnt_sock;
+                            snprintf(client_info[i].ip_addr, sizeof(client_info[i].ip_addr),
+                                "%s", inet_ntoa(clnt_adr.sin_addr));
+                            client_info->used = 1;
+                        }
+                    }
                 }
                 else                                    // read message!
                 {
-                    str_len = read(fd_num, buf, BUF_SIZE);
+                    str_len = read(fd_num, data_from_client.buf, BUF_SIZE);
                     if (str_len == 0)                   // close request!
                     {
                         FD_CLR(fd_num, &reads);
                         close(fd_num);
                         VLOG("closed client: %d \n", fd_num);
+
+                        for(int i = 0; i < MAX_CLIENT_NUM; i++)
+                        {
+                            if(client_info[i].fd == fd_num)
+                            {
+                                client_info[i].used = 0;
+                            }
+                        }
                     }
                     else
                     {
                         //data coming from client
-                        memcpy(data_from_client[write_index].buf, buf, str_len);
-                        data_from_client[write_index].size    = str_len;
-                        data_from_client[write_index].fd      = fd_num;
-                        snprintf(data_from_client[write_index].ip_addr, sizeof(data_from_client[write_index].ip_addr), "%s", inet_ntoa(clnt_adr.sin_addr));
-                        write_index++;
-                        if(write_index == 16)
-                            write_index = 0;
-
-                        pthread_mutex_lock (&thread_flag_mutex);
-                        thread_flag |= FLAG_DATA_FROM_CLIENT;
-                        if(write_index == 0) {
-                            read_index = 15;
-                        } else {
-                            read_index = write_index - 1;
+                        data_from_client.size    = str_len;
+                        data_from_client.fd      = fd_num;
+                        memset(data_from_client.ip_addr, 0x00, sizeof(data_from_client.ip_addr));
+                        for(int i = 0; i < MAX_CLIENT_NUM; i++)
+                        {
+                            if((client_info[i].fd == fd_num) && (client_info[i].used == 1))
+                            {
+                                snprintf(data_from_client.ip_addr, sizeof(data_from_client.ip_addr),
+                                    "%s", client_info[i].ip_addr);
+                            }
                         }
-                        pthread_cond_signal (&thread_flag_cv);
-                        pthread_mutex_unlock (&thread_flag_mutex);
+                        if(pfn_get_data)
+                            pfn_get_data(&data_from_client);
                     }
                 }
             }
@@ -124,40 +122,14 @@ static void *server_comm_tcp_thread(void *arg)
     }
 }
 
-int server_tcp_get_data(struct DATA_FROM_CLIENT *p_data)
-{
-    int data_available = 0;
-
-	while(1) {
-		pthread_mutex_lock (&thread_flag_mutex);
-		while (!thread_flag) {
-		  pthread_cond_wait (&thread_flag_cv, &thread_flag_mutex);
-		}
-
-		if(thread_flag & FLAG_DATA_FROM_CLIENT) {
-			thread_flag &= ~FLAG_DATA_FROM_CLIENT;
-
-            p_data->fd   = data_from_client[read_index].fd;
-            p_data->size = data_from_client[read_index].size;
-            memcpy(p_data->buf, data_from_client[read_index].buf, BUF_SIZE);
-            memcpy(p_data->ip_addr, data_from_client[read_index].ip_addr, sizeof(data_from_client[read_index].ip_addr));
-
-            pthread_mutex_unlock (&thread_flag_mutex);
-            break;
-		}
-		pthread_mutex_unlock (&thread_flag_mutex);
-	}
-
-    return 0;
-}
-
-
-int server_tcp_start(uint16_t port)
+int server_tcp_start(uint16_t port, int(*funcPtr)(struct DATA_FROM_CLIENT *p_client_data))
 {
     struct sockaddr_in serv_adr;
     int option;
     int str_len;
     int ret = 0;
+
+    pfn_get_data = funcPtr;
 
     serv_sock = socket(PF_INET, SOCK_STREAM, 0);
     if (ret < 0)
