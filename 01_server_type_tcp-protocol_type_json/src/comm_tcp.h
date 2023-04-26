@@ -5,14 +5,19 @@
 
 #define BUF_SIZE 4096
 
+#define DATA_TYPE_CONNECT    0x01
+#define DATA_TYPE_DISCONNECT 0x02
+#define DATA_TYPE_GET_DATA   0x03
+
 struct DATA_FROM_CLIENT {
     char     ip_addr[16];
     int      fd;
     uint16_t size;
     uint8_t  buf[BUF_SIZE];
+    uint8_t  type;
 };
 
-int server_tcp_start(uint16_t port, int(*funcPtr)(struct DATA_FROM_CLIENT *p_client_data));
+int server_tcp_start(uint16_t port, void (*funcPtr)(struct DATA_FROM_CLIENT *p_client_data));
 int server_tcp_stop();
 
 #endif

@@ -12,11 +12,10 @@
 #include "comm_tcp.h"
 
 
-int (*pfn_get_data)(struct DATA_FROM_CLIENT *p_client_data);
+void (*pfn_get_data)(struct DATA_FROM_CLIENT *p_client_data);
 
 #define MAX_CLIENT_NUM  16
 
-static pthread_t server_comm_tcp_thread_id = 0;
 static int serv_sock = 0;
 
 static void *server_comm_tcp_thread(void *arg)
@@ -32,6 +31,8 @@ static void *server_comm_tcp_thread(void *arg)
     int str_len = 0;
     int ret     = 0;
     struct DATA_FROM_CLIENT data_from_client;
+
+    /* ip地址形式为 192.168.133.123，最长占15个字节, 加上结尾符0x00，所以定义ip_addr大小为16个字节 */
     struct { int used; int fd; char ip_addr[16]; } client_info[MAX_CLIENT_NUM];
 
     FD_ZERO(&reads);
@@ -68,8 +69,8 @@ static void *server_comm_tcp_thread(void *arg)
                     FD_SET(clnt_sock, &reads);
                     if (fd_max < clnt_sock)
                         fd_max = clnt_sock;
-                    VLOG("connected client %d: %s:%d\n", clnt_sock,
-                        inet_ntoa(clnt_adr.sin_addr), ntohs(clnt_adr.sin_port));
+                    // VLOG("connected client %d: %s:%d\n", clnt_sock,
+                    //     inet_ntoa(clnt_adr.sin_addr), ntohs(clnt_adr.sin_port));
 
                     for(int i = 0; i < MAX_CLIENT_NUM; i++)
                     {
@@ -78,6 +79,14 @@ static void *server_comm_tcp_thread(void *arg)
                             client_info[i].fd = clnt_sock;
                             snprintf(client_info[i].ip_addr, sizeof(client_info[i].ip_addr),
                                 "%s", inet_ntoa(clnt_adr.sin_addr));
+
+                            data_from_client.type    = DATA_TYPE_CONNECT;
+                            data_from_client.fd      = clnt_sock;
+                            snprintf(data_from_client.ip_addr, sizeof(data_from_client.ip_addr),
+                                "%s", inet_ntoa(clnt_adr.sin_addr));
+                            if(pfn_get_data)
+                                pfn_get_data(&data_from_client);
+
                             client_info[i].used = 1;
                             break;
                         }
@@ -90,19 +99,28 @@ static void *server_comm_tcp_thread(void *arg)
                     {
                         FD_CLR(fd_num, &reads);
                         close(fd_num);
-                        VLOG("closed client: %d \n", fd_num);
+                        // VLOG("closed client: %d \n", fd_num);
 
                         for(int i = 0; i < MAX_CLIENT_NUM; i++)
                         {
                             if(client_info[i].fd == fd_num)
                             {
+                                data_from_client.type    = DATA_TYPE_DISCONNECT;
+                                data_from_client.fd      = fd_num;
+                                snprintf(data_from_client.ip_addr, sizeof(data_from_client.ip_addr),
+                                    "%s", client_info[i].ip_addr);
+                                if(pfn_get_data)
+                                    pfn_get_data(&data_from_client);
+
                                 client_info[i].used = 0;
+                                break;
                             }
                         }
                     }
                     else
                     {
                         //data coming from client
+                        data_from_client.type    = DATA_TYPE_GET_DATA;
                         data_from_client.size    = str_len;
                         data_from_client.fd      = fd_num;
                         memset(data_from_client.ip_addr, 0x00, sizeof(data_from_client.ip_addr));
@@ -115,6 +133,7 @@ static void *server_comm_tcp_thread(void *arg)
                                 break;
                             }
                         }
+
                         if(pfn_get_data)
                             pfn_get_data(&data_from_client);
                     }
@@ -124,12 +143,13 @@ static void *server_comm_tcp_thread(void *arg)
     }
 }
 
-int server_tcp_start(uint16_t port, int(*funcPtr)(struct DATA_FROM_CLIENT *p_client_data))
+int server_tcp_start(uint16_t port, void (*funcPtr)(struct DATA_FROM_CLIENT *p_client_data))
 {
     struct sockaddr_in serv_adr;
     int option;
     int str_len;
     int ret = 0;
+    static pthread_t server_comm_tcp_thread_id = 0;
 
     pfn_get_data = funcPtr;
 
