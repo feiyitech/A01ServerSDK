@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
     struct timeval timeout;
     fd_set reads, cpy_reads;
     int ret = 0;
+    int option;
 
     socklen_t adr_sz;
     int fd_max, str_len, fd_num;
@@ -32,6 +33,14 @@ int main(int argc, char *argv[])
     if (ret < 0)
     {
         VLOG("create socket failed: %s\n", strerror(errno));
+        return -1;
+    }
+
+    option = 1;
+    ret = setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
+    if (ret < 0)
+    {
+        VLOG("setsockopt failed: %s\n", strerror(errno));
         return -1;
     }
 
