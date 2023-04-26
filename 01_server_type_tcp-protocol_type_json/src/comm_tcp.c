@@ -9,11 +9,33 @@
 #include <pthread.h>
 #include <errno.h>
 #include "../include/vlog.h"
-
-#define BUF_SIZE 4096
+#include "comm_tcp.h"
 
 static pthread_t server_comm_tcp_thread_id = 0;
 static int serv_sock = 0;
+
+struct DATA_FROM_CLIENT data_from_client[16];
+static int write_index = 0;
+static int read_index  = 0;
+
+
+
+static int thread_flag;
+static pthread_cond_t thread_flag_cv;
+static pthread_mutex_t thread_flag_mutex;
+
+#define FLAG_DATA_FROM_CLIENT  0x01
+
+static void initialize_flag ()
+{
+  /* Initialize the mutex and condition variable.  */
+  pthread_mutex_init (&thread_flag_mutex, NULL);
+  pthread_cond_init (&thread_flag_cv, NULL);
+  /* Initialize the flag value.  */
+  thread_flag = 0;
+}
+
+
 
 static void *server_comm_tcp_thread(void *arg)
 {
@@ -77,7 +99,24 @@ static void *server_comm_tcp_thread(void *arg)
                     }
                     else
                     {
-                        VLOG("length: %d, data: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n", str_len, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+                        //data coming from client
+                        memcpy(data_from_client[write_index].buf, buf, str_len);
+                        data_from_client[write_index].size    = str_len;
+                        data_from_client[write_index].fd      = fd_num;
+                        snprintf(data_from_client[write_index].ip_addr, sizeof(data_from_client[write_index].ip_addr), "%s", inet_ntoa(clnt_adr.sin_addr));
+                        write_index++;
+                        if(write_index == 16)
+                            write_index = 0;
+
+                        pthread_mutex_lock (&thread_flag_mutex);
+                        thread_flag |= FLAG_DATA_FROM_CLIENT;
+                        if(write_index == 0) {
+                            read_index = 15;
+                        } else {
+                            read_index = write_index - 1;
+                        }
+                        pthread_cond_signal (&thread_flag_cv);
+                        pthread_mutex_unlock (&thread_flag_mutex);
                     }
                 }
             }
@@ -85,7 +124,35 @@ static void *server_comm_tcp_thread(void *arg)
     }
 }
 
-int start_server_tcp(uint16_t port)
+int server_tcp_get_data(struct DATA_FROM_CLIENT *p_data)
+{
+    int data_available = 0;
+
+	while(1) {
+		pthread_mutex_lock (&thread_flag_mutex);
+		while (!thread_flag) {
+		  pthread_cond_wait (&thread_flag_cv, &thread_flag_mutex);
+		}
+
+		if(thread_flag & FLAG_DATA_FROM_CLIENT) {
+			thread_flag &= ~FLAG_DATA_FROM_CLIENT;
+
+            p_data->fd   = data_from_client[read_index].fd;
+            p_data->size = data_from_client[read_index].size;
+            memcpy(p_data->buf, data_from_client[read_index].buf, BUF_SIZE);
+            memcpy(p_data->ip_addr, data_from_client[read_index].ip_addr, sizeof(data_from_client[read_index].ip_addr));
+
+            pthread_mutex_unlock (&thread_flag_mutex);
+            break;
+		}
+		pthread_mutex_unlock (&thread_flag_mutex);
+	}
+
+    return 0;
+}
+
+
+int server_tcp_start(uint16_t port)
 {
     struct sockaddr_in serv_adr;
     int option;
@@ -134,7 +201,7 @@ int start_server_tcp(uint16_t port)
     return 0;
 }
 
-int stop_server_tcp()
+int server_tcp_stop()
 {
     close(serv_sock);
     return 0;
