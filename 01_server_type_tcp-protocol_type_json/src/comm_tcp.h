@@ -3,7 +3,11 @@
 
 #include <stdint.h>
 
+/* 每次能接收的最大字节数 */
 #define BUF_SIZE 4096
+
+/* 客户端最多连接16个 */
+#define MAX_CLIENT_NUM  16
 
 #define DATA_TYPE_CONNECT    0x01
 #define DATA_TYPE_DISCONNECT 0x02

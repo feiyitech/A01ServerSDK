@@ -14,8 +14,6 @@
 
 void (*pfn_get_data)(struct DATA_FROM_CLIENT *p_client_data);
 
-#define MAX_CLIENT_NUM  16
-
 static int serv_sock = 0;
 
 static void *server_comm_tcp_thread(void *arg)
