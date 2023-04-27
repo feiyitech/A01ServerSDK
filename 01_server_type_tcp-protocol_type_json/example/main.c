@@ -7,10 +7,9 @@
 #include "cJSON.h"
 #include "protocol_json.h"
 
-
 typedef struct ST_CLIENT_INFO {
     int      fd;
-    uint8_t  used;
+    uint8_t  connected;
     char     uuid[36];
     ST_AC_INFO ac_info[32];      // 当前代码中设定最多连接32个空调内机
 } ST_CLIENT_INFO;
@@ -18,9 +17,6 @@ typedef struct ST_CLIENT_INFO {
 ST_CLIENT_INFO client_info[MAX_CLIENT_NUM];  // 服务器端最多连接 MAX_CLIENT_NUM 个智能主机, 当前设置为 16，在 comm_tcp.h 文件中定义
 
 static struct DATA_FROM_CLIENT m_client_data;
-
-
-
 
 void get_data_cb(struct DATA_FROM_CLIENT *p_client_data)
 {
@@ -35,7 +31,7 @@ void get_data_cb(struct DATA_FROM_CLIENT *p_client_data)
         int i = 0;
         for(i = 0; i < MAX_CLIENT_NUM; i++)
         {
-            if((client_info[i].fd == p_client_data->fd) && (client_info[i].used == 1))
+            if((client_info[i].fd == p_client_data->fd) && (client_info[i].connected == 1))
             {
                 VLOG("error: fd %d already exist.\n", p_client_data->fd);
                 break;
@@ -45,9 +41,9 @@ void get_data_cb(struct DATA_FROM_CLIENT *p_client_data)
         {
             for(i = 0; i < MAX_CLIENT_NUM; i++)
             {
-                if(client_info[i].used == 0)
+                if(client_info[i].connected == 0)
                 {
-                    client_info[i].used = 1;
+                    client_info[i].connected = 1;
                     client_info[i].fd   = p_client_data->fd;
                     VLOG("add fd %d to client_info[%d]\n", p_client_data->fd, i);
                     break;
@@ -62,9 +58,9 @@ void get_data_cb(struct DATA_FROM_CLIENT *p_client_data)
         int i = 0;
         for(i = 0; i < MAX_CLIENT_NUM; i++)
         {
-            if((client_info[i].fd == p_client_data->fd) && (client_info[i].used == 1))
+            if((client_info[i].fd == p_client_data->fd) && (client_info[i].connected == 1))
             {
-                client_info[i].used = 0;
+                client_info[i].connected = 0;
                 memset(client_info[i].uuid, 0x00, sizeof(client_info[i].uuid));
                 client_info[i].fd   = 0;
                 VLOG("remove fd %d from client_info[%d]\n", p_client_data->fd, i);
@@ -100,7 +96,7 @@ void get_data_cb(struct DATA_FROM_CLIENT *p_client_data)
                 int i = 0;
                 for(i = 0; i < MAX_CLIENT_NUM; i++)
                 {
-                    if((client_info[i].used == 1) && (client_info[i].fd == p_client_data->fd))
+                    if((client_info[i].connected == 1) && (client_info[i].fd == p_client_data->fd))
                     {
                         if(0 != strcmp(client_info[i].uuid, p_ac_status->uuid))
                         {
@@ -138,24 +134,16 @@ int main(int argc, char *argv[])
     {
         usleep(1000000 * 10);
 
-        if((client_info[0].used == 1) && (client_info[0].fd != 0) && (0 != strcmp(client_info[0].uuid, "")))
+        if((client_info[0].connected == 1) && (client_info[0].fd != 0) && (0 != strcmp(client_info[0].uuid, "")))
         {
-            ret = construct_status_read(client_info[0].uuid, (char *)(send_buf + 6), &send_size);
+            ret = construct_status_read(client_info[0].uuid, send_buf, &send_size);
             if(ret < 0)
             {
                 VLOG("construct_status_read failed.\n");
             }
             else
             {
-                send_buf[0] = 0xAA;
-                send_buf[1] = 0x55;
-                send_buf[2] = send_size >> 24;
-                send_buf[3] = send_size >> 16;
-                send_buf[4] = send_size >> 8;
-                send_buf[5] = send_size;
-                VLOG("send data is %s\n", send_buf + 6);
-
-                ret = server_tcp_write(client_info[0].fd, send_buf, send_size + 6);
+                ret = server_tcp_write(client_info[0].fd, send_buf, send_size);
                 if(ret < 0)
                 {
                     VLOG("serve_tcp_write failed.\n");

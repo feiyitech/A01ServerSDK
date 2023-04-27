@@ -31,7 +31,7 @@ static void *server_comm_tcp_thread(void *arg)
     struct DATA_FROM_CLIENT data_from_client;
 
     /* ip地址形式为 192.168.133.123，最长占15个字节, 加上结尾符0x00，所以定义ip_addr大小为16个字节 */
-    struct { int used; int fd; char ip_addr[16]; } client_info[MAX_CLIENT_NUM];
+    struct { int connected; int fd; char ip_addr[16]; } client_info[MAX_CLIENT_NUM];
 
     FD_ZERO(&reads);
     FD_SET(serv_sock, &reads);
@@ -72,7 +72,7 @@ static void *server_comm_tcp_thread(void *arg)
 
                     for(int i = 0; i < MAX_CLIENT_NUM; i++)
                     {
-                        if(client_info[i].used == 0)
+                        if(client_info[i].connected == 0)
                         {
                             client_info[i].fd = clnt_sock;
                             snprintf(client_info[i].ip_addr, sizeof(client_info[i].ip_addr),
@@ -85,7 +85,7 @@ static void *server_comm_tcp_thread(void *arg)
                             if(pfn_get_data)
                                 pfn_get_data(&data_from_client);
 
-                            client_info[i].used = 1;
+                            client_info[i].connected = 1;
                             break;
                         }
                     }
@@ -110,7 +110,7 @@ static void *server_comm_tcp_thread(void *arg)
                                 if(pfn_get_data)
                                     pfn_get_data(&data_from_client);
 
-                                client_info[i].used = 0;
+                                client_info[i].connected = 0;
                                 break;
                             }
                         }
@@ -124,7 +124,7 @@ static void *server_comm_tcp_thread(void *arg)
                         memset(data_from_client.ip_addr, 0x00, sizeof(data_from_client.ip_addr));
                         for(int i = 0; i < MAX_CLIENT_NUM; i++)
                         {
-                            if((client_info[i].fd == fd_num) && (client_info[i].used == 1))
+                            if((client_info[i].fd == fd_num) && (client_info[i].connected == 1))
                             {
                                 snprintf(data_from_client.ip_addr, sizeof(data_from_client.ip_addr),
                                     "%s", client_info[i].ip_addr);

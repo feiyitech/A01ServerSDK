@@ -121,8 +121,18 @@ int construct_status_read(char *p_uuid, char *p_data_out, int *p_len)
     if(pData)
     {
         // VLOG("json data:\n%s. memorycopy-length: %d\n", pData, (int)strlen(pData));
-        memcpy(p_data_out, pData, strlen(pData));
-        *p_len = strlen(pData);
+
+        uint32_t length = strlen(pData);
+        p_data_out[0] = 0xAA;
+        p_data_out[1] = 0x55;
+        p_data_out[2] = length >> 24;
+        p_data_out[3] = length >> 16;
+        p_data_out[4] = length >> 8;
+        p_data_out[5] = length;
+        memcpy(p_data_out + 6, pData, length);
+
+        *p_len = length + 6;
+
         cJSON_free(pData);
     }
     else
