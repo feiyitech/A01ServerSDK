@@ -141,6 +141,25 @@ static void *server_comm_tcp_thread(void *arg)
     }
 }
 
+int server_tcp_write(int fd, char *buffer, int size)
+{
+    int ret           = 0;
+    int written_bytes = 0;
+
+    while(written_bytes < size)
+    {
+        ret = write(fd, buffer, size - written_bytes);
+        if(ret < 0)
+        {
+            VLOG("write failed: %s\n", strerror(errno));
+            return -1;
+        }
+        written_bytes += ret;
+    }
+
+    return 0;
+}
+
 int server_tcp_start(uint16_t port, void (*funcPtr)(struct DATA_FROM_CLIENT *p_client_data))
 {
     struct sockaddr_in serv_adr;

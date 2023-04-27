@@ -23,5 +23,6 @@ struct DATA_FROM_CLIENT {
 
 int server_tcp_start(uint16_t port, void (*funcPtr)(struct DATA_FROM_CLIENT *p_client_data));
 int server_tcp_stop();
+int server_tcp_write(int fd, char *buffer, int size);
 
 #endif
