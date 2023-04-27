@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "comm_tcp.h"
-#include "../include/vlog.h"
+#include "vlog.h"
 #include "cJSON.h"
 
 typedef struct ST_AC_INFO {

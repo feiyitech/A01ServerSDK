@@ -8,7 +8,7 @@
 #include <sys/select.h>
 #include <pthread.h>
 #include <errno.h>
-#include "../include/vlog.h"
+#include "vlog.h"
 #include "comm_tcp.h"
 
 
@@ -51,7 +51,7 @@ static void *server_comm_tcp_thread(void *arg)
         }
         else if(ret == 0)
         {
-            VLOG("select timed out...\n");
+            // VLOG("select timed out...\n");
             continue;
         }
 
