@@ -95,15 +95,41 @@ void get_data_cb(struct DATA_FROM_CLIENT *p_client_data)
             case TYPE_STATUS_READ:
             {
                 ST_AC_STATUS *p_ac_status = (ST_AC_STATUS *)buffer_read_out;
+            }
+            break;
+
+            case TYPE_GENERAL_READ:
+            {
+                ST_GENERAL_READ_INFO *p_general_info = (ST_GENERAL_READ_INFO *)buffer_read_out;
+                VLOG("general_info:\n"
+                     "date: %s\n"
+                     "ver:%s\n"
+                     "database capacity: %d\n"
+                     "database usage: %d\n"
+                     "watch: %d\n"
+                     "watch time: %d\n"
+                     "auth: %d\n", p_general_info->host_info.date,
+                     p_general_info->host_info.version,
+                     p_general_info->host_info.database_capacity,
+                     p_general_info->host_info.database_usage,
+                     p_general_info->host_info.watch,
+                     p_general_info->host_info.watch_time,
+                     p_general_info->host_info.auth);
+            }
+            break;
+
+            case TYPE_HEART_BEAT:
+            {
+                ST_HOST_INFO *p_host_info = (ST_HOST_INFO *)buffer_read_out;
 
                 for (int i = 0; i < MAX_CLIENT_NUM; i++)
                 {
                     if ((client_info[i].connected == 1) && (client_info[i].fd == p_client_data->fd))
                     {
-                        if (0 != strcmp(client_info[i].uuid, p_ac_status->uuid))
+                        if (0 != strcmp(client_info[i].uuid, p_host_info->uuid))
                         {
-                            snprintf(client_info[i].uuid, sizeof(client_info[i].uuid), "%s", p_ac_status->uuid);
-                            VLOG("add uuid %s to client_info[%d]\n", p_ac_status->uuid, i);
+                            snprintf(client_info[i].uuid, sizeof(client_info[i].uuid), "%s", p_host_info->uuid);
+                            VLOG("add uuid %s to client_info[%d]\n", p_host_info->uuid, i);
                         }
                         break;
                     }
@@ -143,7 +169,7 @@ int main(int argc, char *argv[])
 
         if ((client_info[0].connected == 1) && (client_info[0].fd != 0) && (0 != strcmp(client_info[0].uuid, "")))
         {
-            ret = construct_status_read(client_info[0].uuid, send_buf, &send_size);
+            ret = construct_general_read(client_info[0].uuid, send_buf, &send_size);
             if (ret < 0)
             {
                 VLOG("construct_status_read failed.\n");
