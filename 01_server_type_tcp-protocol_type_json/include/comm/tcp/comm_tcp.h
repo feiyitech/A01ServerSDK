@@ -3,6 +3,11 @@
 
 #include <stdint.h>
 
+#ifdef  __cplusplus
+extern "C"
+{
+#endif
+
 /* 每次能接收的最大字节数 */
 #define BUF_SIZE 4096
 
@@ -21,8 +26,12 @@ struct DATA_FROM_CLIENT {
     uint8_t  type;
 };
 
+
 int server_tcp_start(uint16_t port, void (*funcPtr)(struct DATA_FROM_CLIENT *p_client_data));
 int server_tcp_stop();
 int server_tcp_write(int fd, char *buffer, int size);
 
+#ifdef  __cplusplus
+}
+#endif
 #endif

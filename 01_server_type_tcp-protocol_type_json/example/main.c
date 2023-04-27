@@ -5,6 +5,7 @@
 #include "comm_tcp.h"
 #include "vlog.h"
 #include "cJSON.h"
+#include "protocol_json.h"
 
 typedef struct ST_AC_INFO {
     uint8_t ou_addr;        // 外机地址
@@ -161,78 +162,6 @@ void get_data_cb(struct DATA_FROM_CLIENT *p_client_data)
     }
 }
 
-int construct_status_read(int index, char *p_data_out, int *p_len)
-{
-    cJSON *json_root;
-    cJSON *json_01_sn, *json_01_cmd, *json_01_uuid, *json_01_body;
-    cJSON *json_01_body_02_cmd;
-    char *pData = NULL;
-    int ret = 0;
-
-    json_root = cJSON_CreateObject();
-    if (!json_root)
-    {
-        VLOG("json create object failed\n");
-        return -1;
-    }
-
-    cJSON_AddNumberToObject(json_root, "sn", 1);
-
-    json_01_cmd = cJSON_CreateString("status_read");
-    if(!json_01_cmd)
-    {
-        VLOG("json create cmd failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_root, "cmd", json_01_cmd);
-
-    json_01_uuid = cJSON_CreateString(client_info[index].uuid);
-    if(!json_01_uuid)
-    {
-        VLOG("json create uuid failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_root, "uuid", json_01_uuid);
-
-    json_01_body = cJSON_CreateObject();
-    if (!json_01_body)
-    {
-        VLOG("json create body failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_root, "body", json_01_body);
-
-    json_01_body_02_cmd = cJSON_CreateString("all");
-    if(!json_01_body_02_cmd)
-    {
-        VLOG("json create body-cmd failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_01_body, "cmd", json_01_body_02_cmd);
-
-    pData = cJSON_PrintUnformatted(json_root);
-    if(pData)
-    {
-        // VLOG("json data:\n%s. memorycopy-length: %d\n", pData, (int)strlen(pData));
-        memcpy(p_data_out, pData, strlen(pData));
-        *p_len = strlen(pData);
-        cJSON_free(pData);
-    }
-    else
-    {
-        VLOG("cjson print function failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-
-    cJSON_Delete(json_root);
-    return 0;
-}
-
 int main(int argc, char *argv[])
 {
     int ret = 0;
@@ -252,9 +181,9 @@ int main(int argc, char *argv[])
     {
         usleep(1000000 * 10);
 
-        if(client_info[0].used == 1)
+        if((client_info[0].used == 1) && (client_info[0].fd != 0) && (0 != strcmp(client_info[0].uuid, "")))
         {
-            ret = construct_status_read(0, (char *)(send_buf + 6), &send_size);
+            ret = construct_status_read(client_info[0].uuid, (char *)(send_buf + 6), &send_size);
             if(ret < 0)
             {
                 VLOG("construct_status_read failed.\n");

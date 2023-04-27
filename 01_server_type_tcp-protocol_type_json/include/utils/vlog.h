@@ -19,7 +19,7 @@
         localtime_r(&start.tv_sec, &ptm);                                              \
         fprintf(stderr, ("<%04d-%02d-%02d %02d:%02d:%02d:%03ld> %s:%s:%05d: " format), \
                 ptm.tm_year + 1900, ptm.tm_mon + 1, ptm.tm_mday,                       \
-                ptm.tm_hour, ptm.tm_min, ptm.tm_sec, start.tv_nsec / 1000000,             \
+                ptm.tm_hour, ptm.tm_min, ptm.tm_sec, start.tv_nsec / 1000000,          \
                 filename(__FILE__),                                                    \
                 __FUNCTION__,                                                          \
                 __LINE__,                                                              \
@@ -46,7 +46,7 @@
         {                                                                                                   \
             snprintf(buffer, sizeof(buffer), ("<%04d-%02d-%02d %02d:%02d:%02d:%03ld> %s:%s:%05d: " format), \
                      ptm.tm_year + 1900, ptm.tm_mon + 1, ptm.tm_mday,                                       \
-                     ptm.tm_hour, ptm.tm_min, ptm.tm_sec, start.tv_nsec / 1000000,                             \
+                     ptm.tm_hour, ptm.tm_min, ptm.tm_sec, start.tv_nsec / 1000000,                          \
                      filename(__FILE__),                                                                    \
                      __FUNCTION__, __LINE__, ##__VA_ARGS__);                                                \
             ret = fwrite(buffer, strlen(buffer), 1, fp);                                                    \
