@@ -44,12 +44,14 @@
 #include "comm_tcp.h"
 
 
-void (*pfn_get_data)(struct DATA_FROM_CLIENT *p_client_data);
+static void (*pfn_get_data)(struct DATA_FROM_CLIENT *p_client_data);
 
-static int serv_sock           = 0;
+static pthread_t server_comm_tcp_thread_id = 0;
+static int flag_server_stop    = 0;
 
 static void *server_comm_tcp_thread(void *arg)
 {
+    int serv_sock = *(int *)arg;
     int clnt_sock;
     struct sockaddr_in clnt_adr;
     socklen_t adr_sz;
@@ -65,6 +67,7 @@ static void *server_comm_tcp_thread(void *arg)
 
     /* ip地址形式为 192.168.133.123，最长占15个字节, 加上结尾符0x00，所以定义ip_addr大小为16个字节 */
     struct { int connected; int fd; char ip_addr[16]; } client_info[MAX_CLIENT_NUM];
+    memset(client_info, 0x00, sizeof(client_info));
 
     FD_ZERO(&reads);
     FD_SET(serv_sock, &reads);
@@ -73,8 +76,19 @@ static void *server_comm_tcp_thread(void *arg)
     while (1)
     {
         cpy_reads = reads;
-        timeout.tv_sec = 5;
+        timeout.tv_sec = 3;
         timeout.tv_usec = 0;
+
+        if(flag_server_stop == 1)
+        {
+            for(int i = 0; i < MAX_CLIENT_NUM; i++)
+            if(client_info[i].connected)
+            {
+                close(client_info[i].fd);
+            }
+            close(serv_sock);
+            break;
+        }
 
         ret = select(fd_max + 1, &cpy_reads, 0, 0, &timeout);
         if(ret < 0)
@@ -205,14 +219,14 @@ int server_tcp_write(int fd, char *buffer, int size)
 
 int server_tcp_start(uint16_t port, void (*funcPtr)(struct DATA_FROM_CLIENT *p_client_data))
 {
+    int serv_sock = 0;
     struct sockaddr_in serv_adr;
     int option;
     int str_len;
     int ret = 0;
-    static pthread_t server_comm_tcp_thread_id = 0;
 
     pfn_get_data            = funcPtr;
-    client_number_connected = 0;
+    flag_server_stop        = 0;
 
     serv_sock = socket(PF_INET, SOCK_STREAM, 0);
     if (ret < 0)
@@ -248,7 +262,7 @@ int server_tcp_start(uint16_t port, void (*funcPtr)(struct DATA_FROM_CLIENT *p_c
         return -1;
     }
 
-    ret = pthread_create (&server_comm_tcp_thread_id, NULL, &server_comm_tcp_thread, NULL);
+    ret = pthread_create (&server_comm_tcp_thread_id, NULL, &server_comm_tcp_thread, &serv_sock);
     if(ret) {
         printf("create server_comm_tcp thread failed: %s\n", strerror(errno));
         return -1;
@@ -258,7 +272,8 @@ int server_tcp_start(uint16_t port, void (*funcPtr)(struct DATA_FROM_CLIENT *p_c
 
 int server_tcp_stop()
 {
-    close(serv_sock);
+    flag_server_stop = 1;
+    pthread_join(server_comm_tcp_thread_id, NULL);
     return 0;
 }
 
