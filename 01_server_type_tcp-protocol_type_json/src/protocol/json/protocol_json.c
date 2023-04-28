@@ -5,7 +5,23 @@
 #include "cJSON.h"
 #include "protocol_json.h"
 
-int parse_online(cJSON *json_payload, ST_HOST_INFO *p_general_info)
+/* @brief 解析智能主机上发的心跳数据
+ *
+ * @param json_payload   :json数据体内容
+ * @param p_general_info :解析后将数据填充到这个指针指向的结构体中
+
+ * @retval 0  :解析成功
+ * @retval -1 :解析失败
+ * 智能主机返回的数据，举例说明如下。其中 body 是本函数要解析的内容。
+{
+    "sn": 1,
+    "cmd": "online",
+    "uuid": "fa0000014000012402201180001015134",
+    "body": {
+    }
+}
+ */
+int parse_online(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info)
 {
     /* 经过测试, 心跳数据包中并没有包含auth这一项, 需要和同事确认一下 */
     // cJSON *json_01_rtc = cJSON_GetObjectItem(json_payload, "auth");
@@ -18,6 +34,31 @@ int parse_online(cJSON *json_payload, ST_HOST_INFO *p_general_info)
     return 0;
 }
 
+/* @brief 解析智能主机对 general_read 命令的回复数据
+ *
+ * @param json_payload   :json数据体内容
+ * @param p_general_info :解析后将数据填充到这个指针指向的结构体中
+
+ * @retval 0  :解析成功
+ * @retval -1 :解析失败
+ * 智能主机返回的数据，举例说明如下。其中 body 是本函数要解析的内容。
+{
+    "sn": 1,
+    "cmd": "general_read",
+    "uuid": "fa0000014000012402201180001015134",
+    "body": {
+        "rtc": {
+            "date": "2021-02-03 18:00:00" // 智能主机时间
+        },
+        "ver": "19.202.0.0.27", // 智能主机版本号
+        "dbt": 2500, // 智能主机数据库总容量大小(M)
+        "dbu": 56, // 智能主机数据库已使用量(百分比)
+        "auth": "0", // 智能主机授权状态，0：未授权；1：已授权
+        "watch": 1, // 是否启动长时间运行监控，1：启动；0：未启动
+        "watcht": 1000 // 超过多长时间(分钟)持续开机监控生效
+    }
+}
+ */
 int parse_general_read(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info)
 {
     cJSON *json_01_rtc = cJSON_GetObjectItem(json_payload, "rtc");
@@ -33,7 +74,7 @@ int parse_general_read(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info
         VLOG("get date failed\n");
         return -1;
     }
-    snprintf(p_general_info->host_info.date, sizeof(p_general_info->host_info.date),
+    snprintf(p_general_info->date, sizeof(p_general_info->date),
         "%s", json_01_rtc_02_date->valuestring);
 
     cJSON *json_01_ver = cJSON_GetObjectItem(json_payload, "ver");
@@ -42,7 +83,7 @@ int parse_general_read(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info
         VLOG("get ver failed\n");
         return -1;
     }
-    snprintf(p_general_info->host_info.version, sizeof(p_general_info->host_info.version),
+    snprintf(p_general_info->version, sizeof(p_general_info->version),
         "%s", json_01_ver->valuestring);
 
     cJSON *json_01_dbt = cJSON_GetObjectItem(json_payload, "dbt");
@@ -51,7 +92,7 @@ int parse_general_read(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info
         VLOG("get dbt failed\n");
         return -1;
     }
-    p_general_info->host_info.database_capacity = json_01_dbt->valueint;
+    p_general_info->database_capacity = json_01_dbt->valueint;
 
     cJSON *json_01_dbu = cJSON_GetObjectItem(json_payload, "dbu");
     if((!json_01_dbu) || (json_01_dbu->type != cJSON_Number))
@@ -59,7 +100,7 @@ int parse_general_read(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info
         VLOG("get dbu failed\n");
         return -1;
     }
-    p_general_info->host_info.database_usage = json_01_dbu->valueint;
+    p_general_info->database_usage = json_01_dbu->valueint;
 
     /* 这里和协议不一致, 需要和同事确认一下. 协议文档中auth是字符串型 */
     cJSON *json_01_auth = cJSON_GetObjectItem(json_payload, "auth");
@@ -68,7 +109,7 @@ int parse_general_read(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info
         VLOG("get auth failed\n");
         return -1;
     }
-    p_general_info->host_info.auth = json_01_auth->valueint;
+    p_general_info->auth = json_01_auth->valueint;
 
     cJSON *json_01_watch = cJSON_GetObjectItem(json_payload, "watch");
     if((!json_01_watch) || (json_01_watch->type != cJSON_Number))
@@ -76,7 +117,7 @@ int parse_general_read(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info
         VLOG("get watch failed\n");
         return -1;
     }
-    p_general_info->host_info.watch = json_01_watch->valueint;
+    p_general_info->watch = json_01_watch->valueint;
 
     cJSON *json_01_watch_time = cJSON_GetObjectItem(json_payload, "watcht");
     if((!json_01_watch_time) || (json_01_watch_time->type != cJSON_Number))
@@ -84,7 +125,7 @@ int parse_general_read(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info
         VLOG("get watch_time failed\n");
         return -1;
     }
-    p_general_info->host_info.watch_time = json_01_watch_time->valueint;
+    p_general_info->watch_time = json_01_watch_time->valueint;
 
     return 0;
 }
@@ -95,6 +136,7 @@ int protocol_json_parse(uint8_t *p_data_in, uint16_t size_in, uint8_t *p_type_ou
     cJSON *json_01_sn, *json_01_cmd, *json_01_uuid, *json_01_body;
     int ret = 0;
 
+    /* 1. 检查数据头部是否有效：0xAA 0x55 和四个字节的json数据长度 */
     if((p_data_in[0] != 0xAA) || (p_data_in[1] != 0x55))
     {
         VLOG("error header: 0x%02x 0x%02x\n", p_data_in[0], p_data_in[1]);
@@ -124,6 +166,7 @@ int protocol_json_parse(uint8_t *p_data_in, uint16_t size_in, uint8_t *p_type_ou
         cJSON_free(p_data_print);
     }
 
+    /* 2. 检查必要字段：sn, uuid, cmd, body */
     json_01_sn = cJSON_GetObjectItem(json_root, "sn");
     if((!json_01_sn) || (json_01_sn->type != cJSON_Number))
     {
@@ -156,6 +199,7 @@ int protocol_json_parse(uint8_t *p_data_in, uint16_t size_in, uint8_t *p_type_ou
         return -1;
     }
 
+    /* 3. 依据不同的 cmd 调用不同的函数进行解析 */
     if(0 == strcmp(json_01_cmd->valuestring, "general_read"))
     {
         *p_type_out = TYPE_GENERAL_READ;
@@ -178,16 +222,22 @@ int protocol_json_parse(uint8_t *p_data_in, uint16_t size_in, uint8_t *p_type_ou
     else if(0 == strcmp(json_01_cmd->valuestring, "online"))
     {
         *p_type_out = TYPE_HEART_BEAT;
-        ST_HOST_INFO *p_host_info = (ST_HOST_INFO *)p_data_out;
+        ST_GENERAL_READ_INFO *p_general_read_info = (ST_GENERAL_READ_INFO *)p_data_out;
 
-        ret = parse_online(json_01_body, p_host_info);
+        ret = parse_online(json_01_body, p_general_read_info);
         if(ret < 0)
         {
             VLOG("parse_online failed.\n");
             cJSON_Delete(json_root);
             return -1;
         }
-        snprintf(p_host_info->uuid, sizeof(p_host_info->uuid), "%s", json_01_uuid->valuestring);
+        snprintf(p_general_read_info->uuid, sizeof(p_general_read_info->uuid), "%s", json_01_uuid->valuestring);
+    }
+    else
+    {
+        VLOG("current unsupported cmd: %s\n", json_01_cmd->valuestring);
+        cJSON_Delete(json_root);
+        return -1;
     }
 
     cJSON_Delete(json_root);

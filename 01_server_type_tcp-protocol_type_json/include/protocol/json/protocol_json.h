@@ -30,8 +30,8 @@ typedef struct ST_AC_STATUS {
     ST_AC_INFO ac_info[32];
 } ST_AC_STATUS;
 
-
-typedef struct ST_HOST_INFO {
+typedef struct ST_GENERAL_READ_INFO {
+    char uuid[36];
     char date[32];
     char version[32];
     uint32_t database_capacity;
@@ -39,18 +39,12 @@ typedef struct ST_HOST_INFO {
     uint8_t auth;
     uint8_t watch;
     uint8_t watch_time;
-    char uuid[36];
-} ST_HOST_INFO;
-
-typedef struct ST_GENERAL_READ_INFO {
-    char uuid[36];
-    ST_HOST_INFO host_info;
 } ST_GENERAL_READ_INFO;
 
 int construct_general_read(char *p_uuid, char *p_data_out, int *p_len);
 int construct_status_read(char *p_uuid, char *p_data_out, int *p_len);
 int protocol_json_parse(uint8_t *p_data_in, uint16_t size_in, uint8_t *p_type_out, void *p_data_out);
-int parse_online(cJSON *json_payload, ST_HOST_INFO *p_general_info);
+int parse_online(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info);
 int parse_general_read(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info);
 
 #ifdef  __cplusplus

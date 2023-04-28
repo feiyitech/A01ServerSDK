@@ -108,28 +108,28 @@ void get_data_cb(struct DATA_FROM_CLIENT *p_client_data)
                      "database usage: %d\n"
                      "watch: %d\n"
                      "watch time: %d\n"
-                     "auth: %d\n", p_general_info->host_info.date,
-                     p_general_info->host_info.version,
-                     p_general_info->host_info.database_capacity,
-                     p_general_info->host_info.database_usage,
-                     p_general_info->host_info.watch,
-                     p_general_info->host_info.watch_time,
-                     p_general_info->host_info.auth);
+                     "auth: %d\n", p_general_info->date,
+                     p_general_info->version,
+                     p_general_info->database_capacity,
+                     p_general_info->database_usage,
+                     p_general_info->watch,
+                     p_general_info->watch_time,
+                     p_general_info->auth);
             }
             break;
 
             case TYPE_HEART_BEAT:
             {
-                ST_HOST_INFO *p_host_info = (ST_HOST_INFO *)buffer_read_out;
+                ST_GENERAL_READ_INFO *p_general_read_info = (ST_GENERAL_READ_INFO *)buffer_read_out;
 
                 for (int i = 0; i < MAX_CLIENT_NUM; i++)
                 {
                     if ((client_info[i].connected == 1) && (client_info[i].fd == p_client_data->fd))
                     {
-                        if (0 != strcmp(client_info[i].uuid, p_host_info->uuid))
+                        if (0 != strcmp(client_info[i].uuid, p_general_read_info->uuid))
                         {
-                            snprintf(client_info[i].uuid, sizeof(client_info[i].uuid), "%s", p_host_info->uuid);
-                            VLOG("add uuid %s to client_info[%d]\n", p_host_info->uuid, i);
+                            snprintf(client_info[i].uuid, sizeof(client_info[i].uuid), "%s", p_general_read_info->uuid);
+                            VLOG("add uuid %s to client_info[%d]\n", p_general_read_info->uuid, i);
                         }
                         break;
                     }
