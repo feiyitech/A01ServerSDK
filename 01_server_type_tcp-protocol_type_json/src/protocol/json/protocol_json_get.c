@@ -1,3 +1,35 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright © 2023~2050 <qingdao feiyi tech>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+ * Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+/*
+ * @Description: 本文件实现了对飞奕科技的智能主机(当前是A01产品)的json数据解析的功能
+ * @Author:  jicanmeng
+ * @email:   jicanmeng@163.com
+ * @version: v0.1  2023.04.28 可以解析智能数据上发的心跳数据和主机信息的数据
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -130,6 +162,25 @@ int parse_general_read(cJSON *json_payload, ST_GENERAL_READ_INFO *p_general_info
     return 0;
 }
 
+
+/* @brief 解析智能主机上发的数据，根据数据中不同的命令调用不同的子函数进行解析
+ *
+ * @param p_data_in   :智能主机上发的数据起始地址
+ * @param size_in     :智能主机上发的数据大小
+ * @param p_type_out  :解析数据后，将数据类型放到 p_type_out 指向的变量中
+ *                                数据类型有：TYPE_HEART_BEAT
+ *                                           TYPE_PROPERTY_READ
+ *                                           TYPE_STATUS_READ
+ *                                           TYPE_GENERAL_READ
+ * @param p_data_out  :解析数据后，将数据放到 p_data_out指向的内存中
+ *
+ * @retval 0  :解析成功
+ * @retval -1 :解析失败
+ *
+ * 注意: 此函数的参数中, p_data_in 和 size_in 是输入参数，p_type_out 和 p_data_out 是输出参数. 调用此函数
+ *       后, 要根据 *p_type_out 类型, 通过不同的结构体指针来读取 p_data_out 中的内容. 可参考示例程序
+ *       example/main.c.
+ */
 int protocol_json_parse(uint8_t *p_data_in, uint16_t size_in, uint8_t *p_type_out, void *p_data_out)
 {
     cJSON *json_root;
@@ -236,161 +287,6 @@ int protocol_json_parse(uint8_t *p_data_in, uint16_t size_in, uint8_t *p_type_ou
     else
     {
         VLOG("current unsupported cmd: %s\n", json_01_cmd->valuestring);
-        cJSON_Delete(json_root);
-        return -1;
-    }
-
-    cJSON_Delete(json_root);
-    return 0;
-}
-
-int construct_status_read(char *p_uuid, char *p_data_out, int *p_len)
-{
-    cJSON *json_root;
-    cJSON *json_01_sn, *json_01_cmd, *json_01_uuid, *json_01_body;
-    cJSON *json_01_body_02_cmd;
-    char *pData = NULL;
-    int ret = 0;
-
-    json_root = cJSON_CreateObject();
-    if (!json_root)
-    {
-        VLOG("json create object failed\n");
-        return -1;
-    }
-
-    cJSON_AddNumberToObject(json_root, "sn", 1);
-
-    json_01_cmd = cJSON_CreateString("status_read");
-    if(!json_01_cmd)
-    {
-        VLOG("json create cmd failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_root, "cmd", json_01_cmd);
-
-    json_01_uuid = cJSON_CreateString(p_uuid);
-    if(!json_01_uuid)
-    {
-        VLOG("json create uuid failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_root, "uuid", json_01_uuid);
-
-    json_01_body = cJSON_CreateObject();
-    if (!json_01_body)
-    {
-        VLOG("json create body failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_root, "body", json_01_body);
-
-    json_01_body_02_cmd = cJSON_CreateString("all");
-    if(!json_01_body_02_cmd)
-    {
-        VLOG("json create body-cmd failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_01_body, "cmd", json_01_body_02_cmd);
-
-    pData = cJSON_PrintUnformatted(json_root);
-    if(pData)
-    {
-        // VLOG("json data:\n%s. memorycopy-length: %d\n", pData, (int)strlen(pData));
-
-        uint32_t length = strlen(pData);
-        p_data_out[0] = 0xAA;
-        p_data_out[1] = 0x55;
-        p_data_out[2] = length >> 24;
-        p_data_out[3] = length >> 16;
-        p_data_out[4] = length >> 8;
-        p_data_out[5] = length;
-        memcpy(p_data_out + 6, pData, length);
-
-        *p_len = length + 6;
-
-        cJSON_free(pData);
-    }
-    else
-    {
-        VLOG("cjson print function failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-
-    cJSON_Delete(json_root);
-    return 0;
-}
-
-int construct_general_read(char *p_uuid, char *p_data_out, int *p_len)
-{
-    cJSON *json_root;
-    cJSON *json_01_sn, *json_01_cmd, *json_01_uuid, *json_01_body;
-    cJSON *json_01_body_02_cmd;
-    char *pData = NULL;
-    int ret = 0;
-
-    json_root = cJSON_CreateObject();
-    if (!json_root)
-    {
-        VLOG("json create object failed\n");
-        return -1;
-    }
-
-    cJSON_AddNumberToObject(json_root, "sn", 1);
-
-    json_01_cmd = cJSON_CreateString("general_read");
-    if(!json_01_cmd)
-    {
-        VLOG("json create cmd failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_root, "cmd", json_01_cmd);
-
-    json_01_uuid = cJSON_CreateString(p_uuid);
-    if(!json_01_uuid)
-    {
-        VLOG("json create uuid failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_root, "uuid", json_01_uuid);
-
-    json_01_body = cJSON_CreateObject();
-    if (!json_01_body)
-    {
-        VLOG("json create body failed\n");
-        cJSON_Delete(json_root);
-        return -1;
-    }
-    cJSON_AddItemToObject(json_root, "body", json_01_body);
-
-    pData = cJSON_PrintUnformatted(json_root);
-    if(pData)
-    {
-        // VLOG("json data:\n%s. memorycopy-length: %d\n", pData, (int)strlen(pData));
-
-        uint32_t length = strlen(pData);
-        p_data_out[0] = 0xAA;
-        p_data_out[1] = 0x55;
-        p_data_out[2] = length >> 24;
-        p_data_out[3] = length >> 16;
-        p_data_out[4] = length >> 8;
-        p_data_out[5] = length;
-        memcpy(p_data_out + 6, pData, length);
-
-        *p_len = length + 6;
-
-        cJSON_free(pData);
-    }
-    else
-    {
-        VLOG("cjson print function failed\n");
         cJSON_Delete(json_root);
         return -1;
     }
