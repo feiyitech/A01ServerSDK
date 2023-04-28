@@ -34,10 +34,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include "comm_tcp.h"
-#include "vlog.h"
-#include "cJSON.h"
-#include "protocol_json.h"
+#include "comm/tcp/comm_tcp.h"
+#include "utils/vlog.h"
+#include "utils/cJSON.h"
+#include "protocol/json/protocol_json.h"
 
 typedef struct ST_CLIENT_INFO
 {

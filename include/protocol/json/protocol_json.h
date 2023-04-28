@@ -33,6 +33,7 @@
 #define __PROTOCOL_JSON_H
 
 #include <stdint.h>
+#include <utils/cJSON.h>
 
 #ifdef  __cplusplus
 extern "C"
@@ -55,6 +56,7 @@ typedef struct ST_AC_INFO {
     uint8_t fan_speed;      // 风速
     uint8_t fan_direction;  // 风向
 } ST_AC_INFO;
+
 
 typedef struct ST_AC_STATUS {
     char uuid[36];

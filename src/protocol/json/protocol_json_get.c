@@ -33,9 +33,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include "vlog.h"
-#include "cJSON.h"
-#include "protocol_json.h"
+#include "utils/vlog.h"
+#include "utils/cJSON.h"
+#include "protocol/json/protocol_json.h"
 
 /* @brief 解析智能主机上发的心跳数据
  *

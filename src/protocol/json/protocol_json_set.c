@@ -33,9 +33,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include "vlog.h"
-#include "cJSON.h"
-#include "protocol_json.h"
+#include "utils/vlog.h"
+#include "utils/cJSON.h"
+#include "protocol/json/protocol_json.h"
 
 int construct_status_read(char *p_uuid, char *p_data_out, int *p_len)
 {

@@ -40,8 +40,8 @@
 #include <sys/select.h>
 #include <pthread.h>
 #include <errno.h>
-#include "vlog.h"
-#include "comm_tcp.h"
+#include "utils/vlog.h"
+#include "comm/tcp/comm_tcp.h"
 
 
 static void (*pfn_get_data)(struct DATA_FROM_CLIENT *p_client_data);
