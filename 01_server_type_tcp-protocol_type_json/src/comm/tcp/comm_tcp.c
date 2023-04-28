@@ -46,7 +46,7 @@
 
 void (*pfn_get_data)(struct DATA_FROM_CLIENT *p_client_data);
 
-static int serv_sock = 0;
+static int serv_sock           = 0;
 
 static void *server_comm_tcp_thread(void *arg)
 {
@@ -61,6 +61,7 @@ static void *server_comm_tcp_thread(void *arg)
     int str_len = 0;
     int ret     = 0;
     struct DATA_FROM_CLIENT data_from_client;
+    int client_number_connected = 0;
 
     /* ip地址形式为 192.168.133.123，最长占15个字节, 加上结尾符0x00，所以定义ip_addr大小为16个字节 */
     struct { int connected; int fd; char ip_addr[16]; } client_info[MAX_CLIENT_NUM];
@@ -96,11 +97,20 @@ static void *server_comm_tcp_thread(void *arg)
                     adr_sz = sizeof(clnt_adr);
                     clnt_sock =
                         accept(serv_sock, (struct sockaddr *)&clnt_adr, &adr_sz);
-                    FD_SET(clnt_sock, &reads);
-                    if (fd_max < clnt_sock)
-                        fd_max = clnt_sock;
+
                     // VLOG("connected client %d: %s:%d\n", clnt_sock,
                     //     inet_ntoa(clnt_adr.sin_addr), ntohs(clnt_adr.sin_port));
+                    if(client_number_connected >= MAX_CLIENT_NUM)
+                    {
+                        VLOG("client_number_connected is already %d, disconnect.\n", client_number_connected);
+                        close(clnt_sock);
+                        continue;
+                    }
+
+                    FD_SET(clnt_sock, &reads);
+                    client_number_connected++;
+                    if (fd_max < clnt_sock)
+                        fd_max = clnt_sock;
 
                     for(int i = 0; i < MAX_CLIENT_NUM; i++)
                     {
@@ -129,6 +139,7 @@ static void *server_comm_tcp_thread(void *arg)
                     {
                         FD_CLR(fd_num, &reads);
                         close(fd_num);
+                        client_number_connected--;
                         // VLOG("closed client: %d \n", fd_num);
 
                         for(int i = 0; i < MAX_CLIENT_NUM; i++)
@@ -200,7 +211,8 @@ int server_tcp_start(uint16_t port, void (*funcPtr)(struct DATA_FROM_CLIENT *p_c
     int ret = 0;
     static pthread_t server_comm_tcp_thread_id = 0;
 
-    pfn_get_data = funcPtr;
+    pfn_get_data            = funcPtr;
+    client_number_connected = 0;
 
     serv_sock = socket(PF_INET, SOCK_STREAM, 0);
     if (ret < 0)
